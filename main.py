@@ -1,8 +1,8 @@
 import yfinance as yf
 
 import sys
-from PySide6.QtCharts import QCandlestickSeries, QCandlestickSet, QChart, QChartView
-from PySide6.QtCore import Qt
+from PySide6.QtCharts import QCandlestickSeries, QCandlestickSet, QChart, QChartView, QDateTimeAxis, QValueAxis
+from PySide6.QtCore import Qt, QDateTime
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QMainWindow, QApplication
 
@@ -18,7 +18,7 @@ class Stock:
         self.highs = self.stock_data["High"].tolist()
         self.lows = self.stock_data["Low"].tolist()
  
-        self.unix_dates = [int(timestamp.timestamp()) for timestamp in self.stock_data.index]
+        self.unix_dates = [int(timestamp.timestamp()) * 1000 for timestamp in self.stock_data.index] # A function later on expects milliseconds
     
     
     def create_candle_stick_series(self):
@@ -52,9 +52,30 @@ class MainWindow(QMainWindow):
         
         self.chart.setAnimationOptions(QChart.AnimationOption.SeriesAnimations)
 
-        self.chart.createDefaultAxes()
-        self.chart.legend().setVisible(True)
+        x_axis = QDateTimeAxis()
+        x_axis.setFormat("yyyy-MM-dd")
+        x_axis.setTitleText("Date")
 
+        min_date = QDateTime.fromSecsSinceEpoch(self.stock.unix_dates[0] // 1000) # this function expects milliseconds
+        max_date = QDateTime.fromSecsSinceEpoch(self.stock.unix_dates[-1] // 1000)
+
+        min_date = min_date.addSecs(-3600 * 24)
+        max_date = max_date.addSecs(3600 * 24)
+
+        x_axis.setRange(min_date, max_date)
+
+        x_axis.setTickCount(10)
+        self.chart.addAxis(x_axis, Qt.AlignmentFlag.AlignBottom)
+        self.stock_series.attachAxis(x_axis)
+
+        y_axis = QValueAxis()
+        y_axis.setTitleText("Stock Price")
+        y_axis.setLabelFormat("%.2f")
+        self.chart.addAxis(y_axis, Qt.AlignmentFlag.AlignLeft)
+        self.stock_series.attachAxis(y_axis)
+
+        #self.chart.createDefaultAxes()
+        self.chart.legend().setVisible(True)
         self.chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
 
         self.chart_view = QChartView(self.chart)
